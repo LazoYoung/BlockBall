@@ -123,13 +123,13 @@ class BallDesign(location: Location, ballMeta: BallMeta, persistent: Boolean, uu
     }
 
     /**
-     * Recalculates y-axe hitbox offset in the world.
+     * Recalculates y-axe design offset in the world.
      */
     override fun recalcPosition() {
         val axisBoundingBox = this.boundingBox
 
         this.locX = (axisBoundingBox.minX + axisBoundingBox.maxX) / 2.0
-        this.locY = axisBoundingBox.minY + proxy.meta.hitBoxRelocation - 1
+        this.locY = axisBoundingBox.minY + proxy.meta.hitBoxRelocation
         this.locZ = (axisBoundingBox.minZ + axisBoundingBox.maxZ) / 2.0
     }
 
