@@ -129,7 +129,7 @@ class BallDesign(location: Location, ballMeta: BallMeta, persistent: Boolean, uu
         val axisBoundingBox = this.boundingBox
 
         this.locX = (axisBoundingBox.minX + axisBoundingBox.maxX) / 2.0
-        this.locY = axisBoundingBox.minY + proxy.meta.hitBoxRelocation
+        this.locY = axisBoundingBox.minY + proxy.meta.hitBoxRelocation - 1
         this.locZ = (axisBoundingBox.minZ + axisBoundingBox.maxZ) / 2.0
     }
 

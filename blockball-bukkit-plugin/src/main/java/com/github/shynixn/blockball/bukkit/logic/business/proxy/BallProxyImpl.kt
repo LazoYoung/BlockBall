@@ -241,7 +241,6 @@ class BallProxyImpl(
     /**
      * Kicks the ball by the given entity.
      * The calculated velocity can be manipulated by the BallKickEvent.
-     * TODO Driven shots are heavily decelerated
      *
      * @param entity entity
      */
@@ -268,20 +267,20 @@ class BallProxyImpl(
                 this.setVelocity(entity.velocity)
 
                 sync(concurrencyService, 6L) {
-                    var ballVector = entity.eyeLocation.direction.normalize()
+                    var kickVector = prevEyeLoc.direction.clone()
                     val angle = calculateCoursePitch(prevEyeLoc, entity.eyeLocation, 5f, 90f, 20f)
                     val basis = meta.movementModifier.kickModifier
                     val verticalMod = basis * sin(angle)
                     val horizontalMod = basis * cos(angle)
-                    ballVector = ballVector.multiply(horizontalMod)
-                    ballVector.y = verticalMod
+                    kickVector = kickVector.normalize().multiply(horizontalMod)
+                    kickVector.y = verticalMod
 
-                    val event = BallKickEvent(ballVector, entity, this)
+                    val event = BallKickEvent(kickVector, entity, this)
                     Bukkit.getPluginManager().callEvent(event)
 
                     if (!event.isCancelled) {
                         this.setVelocity(event.resultVelocity)
-                        spin(prevEyeLoc.direction, ballVector)
+                        spin(entity.eyeLocation.direction.normalize(), kickVector)
                     }
                 }
             }
@@ -313,23 +312,15 @@ class BallProxyImpl(
 
         val angle = Math.toDegrees(getHorizontalDeviation(resultVelocity, playerDirection))
         val absAngle = abs(angle).toFloat()
-        var velocity: Float
 
-        velocity = when {
+        this.angularVelocity = when {
             absAngle < 30f -> return
-            absAngle < 110f -> 0.08f * absAngle / 80f
+            absAngle < 110f -> 0.08 * absAngle / 80
             else -> return
         }
 
         if (angle < 0.0) {
-            velocity *= -1f
-        }
-
-        val event = BallSpinEvent(velocity.toDouble(), this, true)
-        Bukkit.getPluginManager().callEvent(event)
-
-        if (!event.isCancelled) {
-            this.angularVelocity = event.angularVelocity
+            this.angularVelocity *= -1f
         }
     }
 
@@ -563,14 +554,13 @@ class BallProxyImpl(
         }
 
         val event = BallSpinEvent(angularVelocity, this, false)
-
         Bukkit.getPluginManager().callEvent(event)
 
         if (!event.isCancelled) {
             angularVelocity = event.angularVelocity
 
             if (angularVelocity != 0.0) {
-                val originUnit = this.originVector!!.normalize()
+                val originUnit = this.originVector!!.clone().normalize()
                 val x = -originUnit.z
                 val z = originUnit.x
                 val newVector = this.originVector!!.add(Vector(x, 0.0, z).multiply(angularVelocity.toFloat()))
