@@ -2,16 +2,15 @@ package com.github.shynixn.blockball.api.bukkit.event
 
 import com.github.shynixn.blockball.api.business.proxy.BallProxy
 import org.bukkit.entity.Entity
-import org.bukkit.util.Vector
 
 /**
- * Created by Shynixn 2018.
+ * Created by LazoYoung 2019
  * <p>
  * Version 1.2
  * <p>
  * MIT License
  * <p>
- * Copyright (c) 2018 by Shynixn
+ * Copyright (c) 2019 by Shynixn
  * <p>
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,13 +30,9 @@ import org.bukkit.util.Vector
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-class BallKickEvent(
+class BallPreKickEvent (
 
-        /**
-         * Resulting velocity.
-         */
-        val resultVelocity: Vector,
-        entity: Entity,
-        ball: BallProxy
+    entity: Entity,
+    ball: BallProxy
 
 ) : BallInteractEvent(entity, ball)
