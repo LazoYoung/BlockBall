@@ -112,7 +112,7 @@ class BallProxyImpl(
     /**
      * Is the ball currently in kick phase?
      */
-    override var skipKickCounter = 0
+    override var skipInteractionCounter = 0
 
     /**
      * Is the ball currently grabbed by some entity?
@@ -167,8 +167,8 @@ class BallProxyImpl(
             this.hitbox.fireTicks = 0
             this.design.fireTicks = 0
 
-            if (skipKickCounter > 0) {
-                skipKickCounter--
+            if (skipInteractionCounter > 0) {
+                skipInteractionCounter--
             }
 
             if (!isGrabbed) {
@@ -208,7 +208,7 @@ class BallProxyImpl(
      * DeGrabs the ball.
      */
     override fun deGrab() {
-        if (!this.isGrabbed || this.interactionEntity == null) {
+        if (!this.isGrabbed || this.interactionEntity == null || skipInteractionCounter > 0) {
             return
         }
 
@@ -243,13 +243,14 @@ class BallProxyImpl(
      * The calculated velocity can be manipulated by the BallKickEvent.
      *
      * @param entity entity
+     * @param pass whether the kick was a pass or a shot.
      */
-    override fun <E> kickByEntity(entity: E) {
+    override fun <E> kickByEntity(entity: E, pass: Boolean) {
         if (entity !is Entity) {
             throw IllegalArgumentException("Entity has to be a BukkitEntity!")
         }
 
-        if (this.isGrabbed || this.skipKickCounter > 0) {
+        if (this.isGrabbed || this.skipInteractionCounter > 0) {
             return
         }
 
@@ -257,19 +258,27 @@ class BallProxyImpl(
 
         if (entity is Player) {
             val prevEyeLoc = entity.eyeLocation.clone()
-            val preEvent = BallPreKickEvent(entity, this)
+            val preEvent = BallInteractEvent(entity, this)
             Bukkit.getPluginManager().callEvent(preEvent)
 
             if (!preEvent.isCancelled) {
+                val delay = when {
+                    pass -> 3
+                    else -> 6
+                }
+
                 this.angularVelocity = 0.0
-                this.skipCounter = 10
-                this.skipKickCounter = 10
+                this.skipCounter = delay + 4
+                this.skipInteractionCounter = delay + 4
                 this.setVelocity(entity.velocity)
 
-                sync(concurrencyService, 6L) {
+                sync(concurrencyService, delay.toLong()) {
                     var kickVector = prevEyeLoc.direction.clone()
-                    val angle = calculateCoursePitch(prevEyeLoc, entity.eyeLocation, 5f, 90f, 20f)
-                    val basis = meta.movementModifier.kickModifier
+                    val angle = calculatePitchToLaunch(prevEyeLoc, entity.eyeLocation)
+                    val basis = when {
+                        pass -> meta.movementModifier.passVelocity
+                        else -> meta.movementModifier.shotVelocity
+                    }
                     val verticalMod = basis * sin(angle)
                     val horizontalMod = basis * cos(angle)
                     kickVector = kickVector.normalize().multiply(horizontalMod)
@@ -280,7 +289,7 @@ class BallProxyImpl(
 
                     if (!event.isCancelled) {
                         this.setVelocity(event.resultVelocity)
-                        spin(entity.eyeLocation.direction.normalize(), kickVector)
+                        spin(entity.eyeLocation.direction, kickVector)
                     }
                 }
             }
@@ -299,7 +308,6 @@ class BallProxyImpl(
 
     /**
      * Begins ball spin towards the player direction.
-     * TODO Apply extra velocity to alleviate the speed reduction
      */
     override fun <V> spin(playerDirection: V, resultVelocity: V) {
         if (playerDirection !is Vector) {
@@ -314,8 +322,8 @@ class BallProxyImpl(
         val absAngle = abs(angle).toFloat()
 
         this.angularVelocity = when {
-            absAngle < 30f -> return
-            absAngle < 110f -> 0.08 * absAngle / 80
+            absAngle < 10f -> return
+            absAngle < 100f -> 0.05 * absAngle / 90
             else -> return
         }
 
@@ -336,7 +344,7 @@ class BallProxyImpl(
             throw IllegalArgumentException("Entity has to be a BukkitEntity!")
         }
 
-        if (interactionEntity == null || !this.isGrabbed || entity == interactionEntity) {
+        if (interactionEntity == null || !this.isGrabbed || entity.uniqueId != interactionEntity!!.uniqueId) {
             return
         }
 
@@ -432,6 +440,7 @@ class BallProxyImpl(
                 @Suppress("UsePropertyAccessSyntax")
                 entity.equipment!!.setItemInHand(design.helmet.clone())
                 this.setHelmet(null)
+                this.skipInteractionCounter = 20
                 this.isGrabbed = true
             }
         }
@@ -577,7 +586,7 @@ class BallProxyImpl(
     private fun applyKnockBack(starter: Vector, n: Vector, block: Block, blockFace: BlockFace): Boolean {
         if (block.type == org.bukkit.Material.AIR && this.knockBackBumper <= 0) {
             val optBounce = getBounceConfigurationFromBlock(block)
-            if (optBounce.isPresent || meta.alwaysBouce) {
+            if (optBounce.isPresent || meta.alwaysBounce) {
                 var r = starter.clone().subtract(n.multiply(2 * starter.dot(n))).multiply(0.75)
 
                 r = if (optBounce.isPresent) {
@@ -600,19 +609,19 @@ class BallProxyImpl(
     }
 
     /**
-     * Calculates the pitch of the ball trajectory.
+     * Calculates the pitch when launching the ball.
      * Result depends on the change of the entity's pitch.
      * Positive value implies that entity has raised its head.
      *
      * @param beforeEyeLoc The eye location of the entity before a certain event
      * @param afterEyeLoc The eye location of the entity after a certain event
-     * @param minimum Maximum value to return
-     * @param maximum Minimum value to return
-     * @param default Default value to return if change of pitch were not detected
      * @return Angle measured in Radian
      */
-    private fun calculateCoursePitch(beforeEyeLoc: Location, afterEyeLoc: Location,
-                                     minimum: Float, maximum: Float, default: Float): Double {
+    private fun calculatePitchToLaunch(beforeEyeLoc: Location, afterEyeLoc: Location): Double {
+        val maximum = meta.movementModifier.maximumPitch
+        val minimum = meta.movementModifier.minimumPitch
+        val default = meta.movementModifier.defaultPitch
+
         if (default > maximum || default < minimum) {
             throw IllegalArgumentException("Default value must be in range of minimum and maximum!")
         }
@@ -745,8 +754,10 @@ class BallProxyImpl(
      * @return A radian angle in the range of -PI to PI
      */
     private fun getHorizontalDeviation(subseq: Vector, precede: Vector): Double {
-        val dot = subseq.x * precede.x + subseq.z * precede.z
-        val det = subseq.x * precede.z - subseq.z * precede.x
+        val s = subseq.normalize()
+        val p = precede.normalize()
+        val dot = s.x * p.x + s.z * p.z
+        val det = s.x * p.z - s.z * p.x
 
         return atan2(det, dot)
     }

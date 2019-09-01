@@ -14,6 +14,7 @@ import org.bukkit.entity.Entity
 import org.bukkit.entity.LivingEntity
 import org.bukkit.entity.Player
 import org.bukkit.event.EventHandler
+import org.bukkit.event.EventPriority
 import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.entity.EntityDamageEvent
@@ -104,20 +105,29 @@ class BallListener @Inject constructor(
     /**
      * Gets called when a player rightClicks on a ball.
      *
+     * 1) Player performs a 'pass' if he was sneaking (SHIFT)
+     * 2) Otherwise, player grabs the ball
+     *
      * @param event event
      */
     @EventHandler
-    fun entityRightClickBallEvent(event: PlayerInteractAtEntityEvent) {
-        if (event.rightClicked.customName == "ResourceBallsPlugin") {
+    fun onPlayerRightClickBallEvent(event: PlayerInteractAtEntityEvent) {
+        if (event.rightClicked.customName != "ResourceBallsPlugin") {
             return
         }
 
         this.dropBall(event.player)
 
         ballEntityService.findBallFromEntity(event.rightClicked).ifPresent { ball ->
-            if (ball.meta.carryAble && !ball.isGrabbed) {
-                ball.grab(event.player)
+            if (event.player.isSneaking) {
+                if (ball.meta.carryAble) {
+                    ball.grab(event.player)
+                }
             }
+            else {
+                ball.kickByEntity(event.player, true)
+            }
+
             event.isCancelled = true
         }
     }
@@ -133,7 +143,7 @@ class BallListener @Inject constructor(
             val optBall = this.ballEntityService.findBallFromEntity(event.entity)
             if (optBall.isPresent) {
                 val ball = optBall.get()
-                ball.kickByEntity(event.damager)
+                ball.kickByEntity(event.damager, false)
             }
         }
     }
@@ -256,13 +266,13 @@ class BallListener @Inject constructor(
     }
 
     /**
-     * Gets called when a player tries to leah a ball and cancels all of it.
+     * Gets called when a player tries to leash a ball and cancels all of it.
      *
      * @param event event
      */
     @EventHandler
     fun entityLeashEvent(event: PlayerLeashEntityEvent) {
-        if (event is LivingEntity) {
+        if (event.entity is LivingEntity) {
             val optBall = ballEntityService.findBallFromEntity(event.entity)
             if (optBall.isPresent) {
                 event.isCancelled = true
@@ -271,13 +281,15 @@ class BallListener @Inject constructor(
     }
 
     /**
-     * Gets called when a player kicks a ball.
+     * Gets called when a player left clicks a ball.
      *
      * @param event event
      */
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     fun ballKickEvent(event: BallKickEvent) {
-        this.playEffects(event.ball, BallActionType.ONKICK)
+        if (!event.isCancelled) {
+            this.playEffects(event.ball, BallActionType.ONKICK)
+        }
     }
 
     /**

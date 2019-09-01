@@ -63,7 +63,7 @@ interface BallMeta {
     /**
      * Should the ball always bounce of walls?
      */
-    var alwaysBouce: Boolean
+    var alwaysBounce: Boolean
 
     /**
      * Amount of time to skip until the next movement interactions check

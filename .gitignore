@@ -19,9 +19,13 @@
 *.rar
 
 # IDEA Files
-/.idea/
+/.idea
 *.iml
 *.db
+
+# Gradle file
+/.gradle
+*/build
 
 # Custom Files
 local.properties

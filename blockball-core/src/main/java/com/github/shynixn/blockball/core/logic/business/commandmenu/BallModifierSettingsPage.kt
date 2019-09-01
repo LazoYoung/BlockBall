@@ -61,11 +61,20 @@ class BallModifierSettingsPage : Page(BallModifierSettingsPage.ID, BallSettingsP
         else if (command == MenuCommand.BALLMOD_VERTICALTOUCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
             ballMeta.verticalTouchModifier = args[2].toDouble()
         }
-        else if (command == MenuCommand.BALLMOD_HORIZONTALKICK && args.size == 3 && args[2].toDoubleOrNull() != null) {
-            ballMeta.horizontalKickModifier = args[2].toDouble()
+        else if (command == MenuCommand.BALLMOD_SHOTVELOCITY && args.size == 3 && args[2].toDoubleOrNull() != null) {
+            ballMeta.shotVelocity = args[2].toDouble()
         }
-        else if (command == MenuCommand.BALLMOD_VERTICALKICK && args.size == 3 && args[2].toDoubleOrNull() != null) {
-            ballMeta.verticalKickModifier = args[2].toDouble()
+        else if (command == MenuCommand.BALLMOD_PASSVELOCITY && args.size == 3 && args[2].toDoubleOrNull() != null) {
+            ballMeta.passVelocity = args[2].toDouble()
+        }
+        else if (command == MenuCommand.BALLMOD_MAXPITCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
+            ballMeta.maximumPitch = args[2].toInt()
+        }
+        else if (command == MenuCommand.BALLMOD_MINPITCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
+            ballMeta.minimumPitch = args[2].toInt()
+        }
+        else if (command == MenuCommand.BALLMOD_DEFAULTPITCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
+            ballMeta.defaultPitch = args[2].toInt()
         }
         else if (command == MenuCommand.BALLMOD_HORIZONTALTHROW && args.size == 3 && args[2].toDoubleOrNull() != null) {
             ballMeta.horizontalThrowModifier = args[2].toDouble()
@@ -101,15 +110,30 @@ class BallModifierSettingsPage : Page(BallModifierSettingsPage.ID, BallSettingsP
                 .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_VERTICALTOUCH.command)
                 .setHoverText("Changes the vertical speed modifier when a player touches a ball.")
                 .builder().nextLine()
-                .component("- Kick Strength (Horizontal): " + ballMeta.horizontalKickModifier).builder()
+                .component("- Shoot Velocity: " + ballMeta.shotVelocity).builder()
                 .component(MenuClickableItem.EDIT.text).setColor(MenuClickableItem.EDIT.color)
-                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_HORIZONTALKICK.command)
-                .setHoverText("Changes the horizontal speed modifier when a player left clicks a ball.")
+                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_SHOTVELOCITY.command)
+                .setHoverText("Changes the speed modifier when a player left clicks a ball.")
                 .builder().nextLine()
-                .component("- Kick Strength (Vertical): " + ballMeta.verticalKickModifier).builder()
+                .component("- Pass Velocity: " + ballMeta.passVelocity).builder()
                 .component(MenuClickableItem.EDIT.text).setColor(MenuClickableItem.EDIT.color)
-                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_VERTICALKICK.command)
-                .setHoverText("Changes the vertical speed modifier when a player left clicks a ball.")
+                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_PASSVELOCITY.command)
+                .setHoverText("Changes the speed modifier when a player right clicks a ball.")
+                .builder().nextLine()
+                .component("- Maximum Pitch (Vertical): " + ballMeta.maximumPitch).builder()
+                .component(MenuClickableItem.EDIT.text).setColor(MenuClickableItem.EDIT.color)
+                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_MAXPITCH.command)
+                .setHoverText("Changes the maximum angle of pitch when a player kicks or throws the ball.")
+                .builder().nextLine()
+                .component("- Minimum Pitch (Vertical): " + ballMeta.minimumPitch).builder()
+                .component(MenuClickableItem.EDIT.text).setColor(MenuClickableItem.EDIT.color)
+                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_MINPITCH.command)
+                .setHoverText("Changes the minimum angle of pitch when a player kicks or throws the ball.")
+                .builder().nextLine()
+                .component("- Initial Pitch (Vertical): " + ballMeta.defaultPitch).builder()
+                .component(MenuClickableItem.EDIT.text).setColor(MenuClickableItem.EDIT.color)
+                .setClickAction(ChatClickAction.SUGGEST_COMMAND, MenuCommand.BALLMOD_DEFAULTPITCH.command)
+                .setHoverText("Changes the angle of pitch when a player kicks or throws the ball without pitch control.")
                 .builder().nextLine()
                 .component("- Throw Strength (Horizontal): " + ballMeta.horizontalThrowModifier).builder()
                 .component(MenuClickableItem.EDIT.text).setColor(MenuClickableItem.EDIT.color)

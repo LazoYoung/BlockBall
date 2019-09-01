@@ -68,7 +68,7 @@ class BallSettingsPage : Page(BallSettingsPage.ID, MainSettingsPage.ID) {
         } else if (command == MenuCommand.BALL_TOGGLE_CARRYABLE) {
             ballMeta.carryAble = !ballMeta.carryAble
         } else if (command == MenuCommand.BALL_TOGGLE_ALWAYSBOUNCE) {
-            ballMeta.alwaysBouce = !ballMeta.alwaysBouce
+            ballMeta.alwaysBounce = !ballMeta.alwaysBounce
         } else if (command == MenuCommand.BALL_TOGGLE_ROTATING) {
             ballMeta.rotating = !ballMeta.rotating
         } else if (command == MenuCommand.BALL_PARTICLEACTION_CALLBACK && args.size == 3) {
@@ -109,7 +109,7 @@ class BallSettingsPage : Page(BallSettingsPage.ID, MainSettingsPage.ID) {
             .setClickAction(ChatClickAction.RUN_COMMAND, MenuCommand.BALL_TOGGLE_CARRYABLE.command)
             .setHoverText("Should the ball be carry able when a player right clicks on it?")
             .builder().nextLine()
-            .component("- Always Bounce: " + ballMeta.alwaysBouce).builder()
+            .component("- Always Bounce: " + ballMeta.alwaysBounce).builder()
             .component(MenuClickableItem.TOGGLE.text).setColor(MenuClickableItem.TOGGLE.color)
             .setClickAction(ChatClickAction.RUN_COMMAND, MenuCommand.BALL_TOGGLE_ALWAYSBOUNCE.command)
             .setHoverText("Should the ball always bounce of surfaces?")

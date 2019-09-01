@@ -65,7 +65,7 @@ interface BallProxy {
     /**
      * Is the ball currently in kick phase?
      */
-    var skipKickCounter: Int
+    var skipInteractionCounter: Int
 
     /**
      * Current velocity of spin generating Magnus force.
@@ -118,8 +118,9 @@ interface BallProxy {
      * The calculated velocity can be manipulated by the BallKickEvent.
      *
      * @param entity entity
+     * @param pass whether the kick was a pass or a shot.
      */
-    fun <E> kickByEntity(entity: E)
+    fun <E> kickByEntity(entity: E, pass: Boolean)
 
     /**
      * Throws the ball by the given entity.

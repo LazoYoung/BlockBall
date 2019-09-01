@@ -64,7 +64,7 @@ class BallMetaEntity(
      * Should the ball always bounce of walls?
      */
     @YamlSerialize(orderNumber = 7, value = "always-bounce")
-    override var alwaysBouce: Boolean = true
+    override var alwaysBounce: Boolean = true
 
     /**
      * Bouncing off from objects modifiers.

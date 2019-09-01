@@ -152,6 +152,11 @@ class BallListenerTest {
         override var angularVelocity: Double = 0.0
 
         /**
+         * Is the ball currently in kick phase?
+         */
+        override var skipInteractionCounter: Int = 0
+
+        /**
          * Returns the armorstand for the design.
          */
         override fun <A> getDesignArmorstand(): A {
@@ -213,7 +218,7 @@ class BallListenerTest {
          *
          * @param entity entity
          */
-        override fun <E> kickByEntity(entity: E) {
+        override fun <E> kickByEntity(entity: E, pass: Boolean) {
             throw IllegalArgumentException()
         }
 
