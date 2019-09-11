@@ -25,7 +25,10 @@
 
 # Gradle file
 /.gradle
-*/build
+**/build
+
+# Patch file
+*.patch
 
 # Custom Files
 local.properties
