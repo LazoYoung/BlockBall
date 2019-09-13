@@ -272,15 +272,20 @@ class BallProxyImpl(
                 this.skipInteractionCounter = delay + 4
                 this.setVelocity(entity.velocity)
 
+                // TODO Do not apply spin and delay if the ball is airborne
+
                 sync(concurrencyService, delay.toLong()) {
                     var kickVector = prevEyeLoc.direction.clone()
-                    val angle = calculatePitchToLaunch(prevEyeLoc, entity.eyeLocation)
+                    val eyeLocation = (entity as Player).eyeLocation
+                    val spinV = calculateSpin(eyeLocation.direction, kickVector)
+                    val spinMod = (1.0 - abs(spinV) / (3.0 * meta.movementModifier.maximumSpinModifier))
+                    val angle = calculatePitchToLaunch(prevEyeLoc, eyeLocation)
                     val basis = when {
                         pass -> meta.movementModifier.passVelocity
                         else -> meta.movementModifier.shotVelocity
                     }
-                    val verticalMod = basis * sin(angle)
-                    val horizontalMod = basis * cos(angle)
+                    val verticalMod = basis * spinMod * sin(angle)
+                    val horizontalMod = basis * spinMod * cos(angle)
                     kickVector = kickVector.normalize().multiply(horizontalMod)
                     kickVector.y = verticalMod
 
@@ -289,7 +294,7 @@ class BallProxyImpl(
 
                     if (!event.isCancelled) {
                         this.setVelocity(event.resultVelocity)
-                        spin(entity.eyeLocation.direction, kickVector)
+                        this.angularVelocity = spinV
                     }
                 }
             }
@@ -307,29 +312,34 @@ class BallProxyImpl(
     }
 
     /**
-     * Begins ball spin towards the player direction.
+     * Calculates the angular velocity in order to spin the ball.
+     *
+     * @return The angular velocity
      */
-    override fun <V> spin(playerDirection: V, resultVelocity: V) {
-        if (playerDirection !is Vector) {
+    override fun <V> calculateSpin(postVector: V, initVector: V): Double {
+        if (postVector !is Vector) {
             throw IllegalArgumentException("PlayerDirection has to be a BukkitVelocity!")
         }
 
-        if (resultVelocity !is Vector) {
+        if (initVector !is Vector) {
             throw IllegalArgumentException("ResultVelocity has to be a BukkitVelocity!")
         }
 
-        val angle = Math.toDegrees(getHorizontalDeviation(resultVelocity, playerDirection))
+        val angle = Math.toDegrees(getHorizontalDeviation(initVector, postVector))
         val absAngle = abs(angle).toFloat()
+        val maxV = meta.movementModifier.maximumSpinModifier
+        var velocity: Double
 
-        this.angularVelocity = when {
-            absAngle < 10f -> return
-            absAngle < 100f -> 0.05 * absAngle / 90
-            else -> return
+        velocity = when {
+            absAngle < 90f -> maxV * absAngle / 90
+            else -> maxV * (180 - absAngle) / 90
         }
 
         if (angle < 0.0) {
-            this.angularVelocity *= -1f
+            velocity *= -1f
         }
+
+        return velocity
     }
 
     /**
@@ -610,14 +620,14 @@ class BallProxyImpl(
 
     /**
      * Calculates the pitch when launching the ball.
-     * Result depends on the change of the entity's pitch.
-     * Positive value implies that entity has raised its head.
+     * Result depends on the change of pitch. For example,
+     * positive value implies that entity raised the pitch of its head.
      *
-     * @param beforeEyeLoc The eye location of the entity before a certain event
-     * @param afterEyeLoc The eye location of the entity after a certain event
+     * @param preLoc The eye location of entity before a certain event occurs
+     * @param postLoc The eye location of entity after a certain event occurs
      * @return Angle measured in Radian
      */
-    private fun calculatePitchToLaunch(beforeEyeLoc: Location, afterEyeLoc: Location): Double {
+    private fun calculatePitchToLaunch(preLoc: Location, postLoc: Location): Double {
         val maximum = meta.movementModifier.maximumPitch
         val minimum = meta.movementModifier.minimumPitch
         val default = meta.movementModifier.defaultPitch
@@ -626,12 +636,12 @@ class BallProxyImpl(
             throw IllegalArgumentException("Default value must be in range of minimum and maximum!")
         }
 
-        val delta = (beforeEyeLoc.pitch - afterEyeLoc.pitch)
-        val plusBasis = 180 - beforeEyeLoc.pitch
+        val delta = (preLoc.pitch - postLoc.pitch)
+        val plusBasis = 90 + preLoc.pitch
 
         val result = when {
             (delta >= 0) -> default + (maximum - default) * delta / plusBasis
-            else -> default + (default - minimum) * delta / (360 - plusBasis)
+            else -> default + (default - minimum) * delta / (180 - plusBasis)
         }
 
         return Math.toRadians(result.toDouble())

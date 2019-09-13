@@ -39,13 +39,13 @@ class DoubleJumpMetaEntity : DoubleJumpMeta {
     override var enabled: Boolean = true
     /** Cooldown between activating this effect.*/
     @YamlSerialize(orderNumber = 2, value = "cooldown")
-    override var cooldown: Int = 2
+    override var cooldown: Int = 3
     /** Vertical strength modifier.*/
     @YamlSerialize(orderNumber = 3, value = "vertical-strength")
-    override var verticalStrength: Double = 1.0
+    override var verticalStrength: Double = 0.5
     /** Horizontal strength modifier.*/
     @YamlSerialize(orderNumber = 4, value = "horizontal-strength")
-    override var horizontalStrength: Double = 2.0
+    override var horizontalStrength: Double = 1.0
     /** ParticleEffect being played when activating this.*/
     @YamlSerialize(orderNumber = 5, value = "particle-effect", implementation = ParticleEntity::class)
     override val particleEffect: Particle = ParticleEntity(ParticleType.EXPLOSION_NORMAL)

@@ -48,7 +48,7 @@ arena:
       prefix: '&c'
       min-amount: 0
       max-amount: 10
-      walking-speed: 0.2
+      walking-speed: 0.3
       goal:
         corner-1:
           x: 160.0
@@ -111,7 +111,7 @@ arena:
       prefix: '&9'
       min-amount: 0
       max-amount: 10
-      walking-speed: 0.2
+      walking-speed: 0.3
       goal:
         corner-1:
           x: 160.0
@@ -177,14 +177,18 @@ arena:
       rotating: true
       modifiers:
         bouncing: 1.0
-        horizontal-touch: 1.0
-        vertical-touch: 1.0
-        horizontal-kick: 1.5
-        vertical-kick: 6.0
+        gravity: 0.8
+        rolling-distance: 2.0
+        horizontal-touch: 0.8
+        vertical-touch: 2.0
+        shot-velocity: 2.0
+        pass-velocity: 1.5
+        max-spin: 0.08
         horizontal-throw: 1.0
         vertical-throw: 1.0
-        rolling-distance: 1.5
-        gravity: 0.7
+        max-pitch: 40
+        min-pitch: 0
+        default-pitch: 20
       particle-effects:
         onspawn:
           effecting: EVERYONE
@@ -339,9 +343,9 @@ arena:
       flags: {}
     double-jump:
       enabled: true
-      cooldown: 2
-      vertical-strength: 1.0
-      horizontal-strength: 2.0
+      cooldown: 3
+      vertical-strength: 0.5
+      horizontal-strength: 1.0
       particle-effect:
         effecting: EVERYONE
         name: explosion
