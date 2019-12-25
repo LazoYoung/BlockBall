@@ -70,13 +70,13 @@ class BallModifierSettingsPage : Page(BallModifierSettingsPage.ID, BallSettingsP
         else if (command == MenuCommand.BALLMOD_MAXSPIN && args.size == 3 && args[2].toDoubleOrNull() != null) {
             ballMeta.maximumSpinVelocity = args[2].toDouble()
         }
-        else if (command == MenuCommand.BALLMOD_MAXPITCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
+        else if (command == MenuCommand.BALLMOD_MAXPITCH && args.size == 3 && args[2].toIntOrNull() != null) {
             ballMeta.maximumPitch = args[2].toInt()
         }
-        else if (command == MenuCommand.BALLMOD_MINPITCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
+        else if (command == MenuCommand.BALLMOD_MINPITCH && args.size == 3 && args[2].toIntOrNull() != null) {
             ballMeta.minimumPitch = args[2].toInt()
         }
-        else if (command == MenuCommand.BALLMOD_DEFAULTPITCH && args.size == 3 && args[2].toDoubleOrNull() != null) {
+        else if (command == MenuCommand.BALLMOD_DEFAULTPITCH && args.size == 3 && args[2].toIntOrNull() != null) {
             ballMeta.defaultPitch = args[2].toInt()
         }
         else if (command == MenuCommand.BALLMOD_HORIZONTALTHROW && args.size == 3 && args[2].toDoubleOrNull() != null) {

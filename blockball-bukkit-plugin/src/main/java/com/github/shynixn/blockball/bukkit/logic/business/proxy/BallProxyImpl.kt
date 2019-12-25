@@ -176,10 +176,6 @@ class BallProxyImpl(
                 skipKickCounter--
             }
 
-            if (skipCounter > 0) {
-                skipCounter--
-            }
-
             if (!isGrabbed) {
                 checkMovementInteractions()
                 if (this.meta.rotating) {
@@ -543,7 +539,7 @@ class BallProxyImpl(
         }
 
         if (times <= 0 || getCalculationEntity<Entity>().isOnGround || collision) {
-            angularVelocity /= 2
+            angularVelocity = 0.0
         }
 
         val event = BallSpinEvent(angularVelocity, this, false)
@@ -603,45 +599,62 @@ class BallProxyImpl(
             return
         }
 
-        val preEvent = BallInteractEvent(player, this)
-        Bukkit.getPluginManager().callEvent(preEvent)
-        if (preEvent.isCancelled) {
-            return
-        }
-
-        val delay = when {
-            pass -> 4
-            else -> 6
-        }
-        val prevEyeLoc = player.eyeLocation.clone()
+        val ball = this.getCalculationEntity<Entity>()
         this.yawChange = player.location.yaw
-        this.skipCounter = delay + 4
-        this.skipKickCounter = delay + 4
-        this.setVelocity(player.velocity)
 
-        // TODO Do not apply spin and delay if the ball is airborne
+        if (ball.isOnGround || ball.location.y < player.eyeLocation.y - 1.0) {
+            val prevEyeLoc = player.eyeLocation.clone()
+            val preEvent = BallInteractEvent(player, this)
+            Bukkit.getPluginManager().callEvent(preEvent)
 
-        sync(concurrencyService, delay.toLong()) {
-            var kickVector = prevEyeLoc.direction.clone()
-            val eyeLocation = player.eyeLocation
-            val spinV = calculateSpinVelocity(eyeLocation.direction, kickVector)
-            val spinDrag = 1.0 - abs(spinV) / (3.0 * meta.movementModifier.maximumSpinVelocity)
-            val angle = calculatePitchToLaunch(prevEyeLoc, eyeLocation)
-            val basis = when {
-                pass -> meta.movementModifier.passVelocity
-                else -> meta.movementModifier.shotVelocity
+            if (!preEvent.isCancelled) {
+                this.skipCounter = 10
+                this.skipKickCounter = 10
+                this.setVelocity(player.velocity.clone())
+
+                sync(concurrencyService, 6L) {
+                    var kickVector = prevEyeLoc.direction
+                    val eyeLocation = player.eyeLocation.clone()
+                    val spinV = if (pass) {
+                        0.0
+                    } else {
+                        calculateSpinVelocity(eyeLocation.direction, kickVector)
+                    }
+                    val spinDrag = 1.0 - abs(spinV) / (3.0 * meta.movementModifier.maximumSpinVelocity)
+                    val angle = calculatePitchToLaunch(prevEyeLoc, eyeLocation)
+                    val basis = meta.movementModifier.shotVelocity
+                    val verticalMod = basis * spinDrag * sin(angle)
+                    val horizontalMod = basis * spinDrag * cos(angle)
+                    kickVector = kickVector.normalize().multiply(horizontalMod)
+                    kickVector.y = verticalMod
+
+                    val event = BallKickEvent(kickVector, player, this)
+                    Bukkit.getPluginManager().callEvent(event)
+
+                    if (!event.isCancelled) {
+                        this.setVelocity(event.resultVelocity)
+                        this.angularVelocity = spinV
+                    }
+                }
             }
-            val verticalMod = basis * spinDrag * sin(angle)
-            val horizontalMod = basis * spinDrag * cos(angle)
-            kickVector = kickVector.normalize().multiply(horizontalMod)
-            kickVector.y = verticalMod
+        }
+        else {
+            val mod = if (pass) {
+                meta.movementModifier.passVelocity
+            } else {
+                meta.movementModifier.shotVelocity
+            }
 
-            val event = BallKickEvent(kickVector, player, this)
+            val vector = player.eyeLocation.direction
+                .clone().normalize().multiply(mod)
+
+            val event = BallKickEvent(vector, player, this)
             Bukkit.getPluginManager().callEvent(event)
 
             if (!event.isCancelled) {
+                this.skipCounter = 4
+                this.skipKickCounter = 4
                 this.setVelocity(event.resultVelocity)
-                this.angularVelocity = spinV
             }
         }
     }
@@ -665,11 +678,11 @@ class BallProxyImpl(
         }
 
         val delta = (preLoc.pitch - postLoc.pitch)
-        val plusBasis = 90 + preLoc.pitch
+        val positiveBasis = 90 + preLoc.pitch
 
         val result = when {
-            (delta >= 0) -> default + (maximum - default) * delta / plusBasis
-            else -> default + (default - minimum) * delta / (180 - plusBasis)
+            (delta >= 0) -> default + (maximum - default) * delta / positiveBasis
+            else -> default + (default - minimum) * delta / (180 - positiveBasis)
         }
 
         return Math.toRadians(result.toDouble())
@@ -697,24 +710,38 @@ class BallProxyImpl(
     private fun checkMovementInteractions(): Boolean {
         if (this.skipCounter <= 0) {
             this.skipCounter = 2
-            val ballLocation = getCalculationEntity<Entity>().location
-            for (entity in ballLocation.chunk.entities) {
-                if (entity.customName != "ResourceBallsPlugin" && entity.location.distance(ballLocation) < meta.hitBoxSize) {
+            val ball = getCalculationEntity<Entity>()
+            for (entity in ball.location.chunk.entities) {
+                if (entity.customName != "ResourceBallsPlugin" && entity is LivingEntity) {
+                    val foot = entity.eyeLocation.add(0.0, -entity.eyeHeight, 0.0)
                     val event = BallInteractEvent(entity, this)
+                    val vector: Vector
+
+                    if (foot.distance(ball.location) > meta.hitBoxSize)
+                        continue
+
                     Bukkit.getPluginManager().callEvent(event)
-                    if (event.isCancelled)
+                    if (event.isCancelled) {
                         return true
-                    val vector = ballLocation
-                        .toVector()
-                        .subtract(entity.location.toVector())
-                        .normalize().multiply(meta.movementModifier.horizontalTouchModifier)
-                    vector.y = 0.1 * meta.movementModifier.verticalTouchModifier
+                    }
+
+                    if (ball.isOnGround) {
+                        vector = ball.location.subtract(entity.location).toVector()
+                            .normalize().multiply(meta.movementModifier.horizontalTouchModifier)
+
+                        vector.y = 0.3 * meta.movementModifier.verticalTouchModifier
+                    } else {
+                        vector = entity.location.direction
+                            .clone().normalize().multiply(meta.movementModifier.horizontalTouchModifier)
+                    }
 
                     this.yawChange = entity.location.yaw
                     this.setVelocity(vector)
                     return true
                 }
             }
+        } else {
+            this.skipCounter--
         }
         return false
     }

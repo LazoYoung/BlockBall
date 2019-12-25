@@ -106,7 +106,7 @@ class GamePropertiesPage : Page(GamePropertiesPage.ID, MiscSettingsPage.ID) {
                 ChatClickAction.SUGGEST_COMMAND,
                 MenuCommand.GAMEPROPERTIES_TELEPORTBACKDELAY.command
             )
-            .setHoverText("Delay after the players get teleported back to their game spawnpoint.")
+            .setHoverText("Delay before teleporting players and ball back to their game spawnpoint.")
             .builder().nextLine()
             .component("- Keep inventory: " + meta.keepInventoryEnabled).builder()
             .component(MenuClickableItem.TOGGLE.text).setColor(MenuClickableItem.TOGGLE.color)

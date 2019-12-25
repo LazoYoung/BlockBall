@@ -125,6 +125,11 @@ class BallHitBox(
      */
     private fun debugPosition() {
         val loc = bukkitEntity.location
-        BlockBallApi.resolve(LoggingService::class.java).debug("Hitbox at ${loc.x.toFloat()} ${loc.y.toFloat()} ${loc.z.toFloat()}")
+        val status = if (this.onGround) {
+            "is on ground."
+        } else {
+            "is airborne."
+        }
+        BlockBallApi.resolve(LoggingService::class.java).debug("Hitbox at ${loc.x.toFloat()} ${loc.y.toFloat()} ${loc.z.toFloat()} $status")
     }
 }

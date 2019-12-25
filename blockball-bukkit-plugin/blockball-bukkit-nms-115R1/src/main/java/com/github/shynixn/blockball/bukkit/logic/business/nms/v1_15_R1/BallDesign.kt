@@ -270,6 +270,11 @@ class BallDesign(location: Location, ballMeta: BallMeta, persistent: Boolean, uu
      */
     private fun debugPosition() {
         val loc = bukkitEntity.location
-        BlockBallApi.resolve(LoggingService::class.java).debug("Design at ${loc.x.toFloat()} ${loc.y.toFloat()} ${loc.z.toFloat()}")
+        val status = if (this.onGround) {
+            "is on ground."
+        } else {
+            "is airborne."
+        }
+        BlockBallApi.resolve(LoggingService::class.java).debug("Design at ${loc.x.toFloat()} ${loc.y.toFloat()} ${loc.z.toFloat()} $status")
     }
 }
