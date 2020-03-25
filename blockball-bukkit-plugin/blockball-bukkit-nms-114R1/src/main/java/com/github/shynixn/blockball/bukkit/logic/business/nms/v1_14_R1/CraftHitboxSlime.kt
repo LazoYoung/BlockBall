@@ -7,7 +7,7 @@ import org.bukkit.craftbukkit.v1_14_R1.entity.CraftSlime
 import org.bukkit.entity.EntityType
 
 /**
- * Created by LazoYoung 2019.
+ * Created by Shynixn 2019.
  * <p>
  * Version 1.2
  * <p>

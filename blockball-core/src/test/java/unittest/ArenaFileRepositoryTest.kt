@@ -102,7 +102,7 @@ class ArenaFileRepositoryTest {
         val actualDataLength = FileUtils.readFileToString(File("build/repository-test/arena/arena_1.yml"), "UTF-8")
 
         // Assert
-        Assertions.assertEquals(7532, actualDataLength.length)
+        Assertions.assertEquals(8011, actualDataLength.length)
     }
 
     /**
@@ -169,6 +169,13 @@ class ArenaFileRepositoryTest {
     }
 
     class MockedConfigurationService : ConfigurationService {
+        /**
+         * Opens an inputStream to the given resource name.
+         */
+        override fun openResource(name: String): InputStream {
+            throw IllegalArgumentException()
+        }
+
         /**
          * Checks if the given [path] contains a value.
          */

@@ -2,13 +2,16 @@
 
 package com.github.shynixn.blockball.bukkit.logic.business.nms.v1_14_R1
 
-import com.github.shynixn.blockball.api.business.enumeration.BallSize
+import com.github.shynixn.blockball.api.BlockBallApi
+import com.github.shynixn.blockball.api.business.service.LoggingService
 import com.github.shynixn.blockball.api.persistence.entity.BallMeta
 import net.minecraft.server.v1_14_R1.EntitySlime
 import net.minecraft.server.v1_14_R1.EntityTypes
 import net.minecraft.server.v1_14_R1.NBTTagCompound
+import net.minecraft.server.v1_14_R1.PacketPlayOutEntityTeleport
 import org.bukkit.Location
 import org.bukkit.craftbukkit.v1_14_R1.CraftWorld
+import org.bukkit.craftbukkit.v1_14_R1.entity.CraftPlayer
 import org.bukkit.event.entity.CreatureSpawnEvent
 import org.bukkit.potion.PotionEffect
 import org.bukkit.potion.PotionEffectType
@@ -44,7 +47,7 @@ class BallHitBox(
     private val ballDesign: BallDesign,
     ballMeta: BallMeta,
     location: Location
-): EntitySlime(EntityTypes.SLIME, (location.world as CraftWorld).handle) {
+) : EntitySlime(EntityTypes.SLIME, (location.world as CraftWorld).handle) {
 
     // BukkitEntity has to be self cached since 1.14.
     private var entityBukkit: Any? = null
@@ -53,21 +56,21 @@ class BallHitBox(
      * Initializes the hitbox.
      */
     init {
-        val mcWorld = (location.world as CraftWorld).handle
         val compound = NBTTagCompound()
-
-        this.setPosition(location.x, location.y, location.z)
-        mcWorld.addEntity(this, CreatureSpawnEvent.SpawnReason.CUSTOM)
         compound.setBoolean("Invulnerable", true)
         compound.setBoolean("PersistenceRequired", true)
         compound.setBoolean("NoAI", true)
-        when (ballMeta.size) {
-            BallSize.SMALL -> compound.setInt("Size", 0)
-            else -> compound.setInt("Size", 1)
-        }
-
+        compound.setInt("Size", ballMeta.hitBoxSize.toInt() - 1)
         this.a(compound)
+
         bukkitEntity.addPotionEffect(PotionEffect(PotionEffectType.INVISIBILITY, Integer.MAX_VALUE, 0, false, false))
+
+        val mcWorld = (location.world as CraftWorld).handle
+        this.setPosition(location.x, location.y, location.z)
+        mcWorld.addEntity(this, CreatureSpawnEvent.SpawnReason.CUSTOM)
+
+        updatePosition()
+        debugPosition()
     }
 
     /**
@@ -79,10 +82,19 @@ class BallHitBox(
         this.dead = false
 
         val loc = ballDesign.bukkitEntity.location
-        if (ballDesign.isSmall) {
-            this.setPositionRotation(loc.x, loc.y + 1, loc.z, loc.yaw, loc.pitch)
-        } else {
-            this.setPositionRotation(loc.x, loc.y + 1, loc.z, loc.yaw, loc.pitch)
+        val lastX = ballDesign.lastX
+        val lastY = ballDesign.lastY
+        val lastZ = ballDesign.lastZ
+
+        if (!loc.x.equals(lastX) || !loc.y.equals(lastY) || !loc.z.equals(lastZ)) {
+            if (ballDesign.isSmall) {
+                this.setPositionRotation(loc.x, loc.y + 0.5, loc.z, loc.yaw, loc.pitch)
+            } else {
+                this.setPositionRotation(loc.x, loc.y + 1.05, loc.z, loc.yaw, loc.pitch)
+            }
+
+            updatePosition()
+            debugPosition()
         }
     }
 
@@ -100,5 +112,21 @@ class BallHitBox(
         }
 
         return this.entityBukkit as CraftHitboxSlime
+    }
+
+    /**
+     * Updates the position of the entity manually.
+     */
+    private fun updatePosition() {
+        val packet = PacketPlayOutEntityTeleport(this)
+        this.world.players.forEach { p -> (p.bukkitEntity as CraftPlayer).handle.playerConnection.sendPacket(packet) }
+    }
+
+    /**
+     * Prints a debugging message for this entity.
+     */
+    private fun debugPosition() {
+        val loc = bukkitEntity.location
+        BlockBallApi.resolve(LoggingService::class.java).debug("Hitbox at ${loc.x.toFloat()} ${loc.y.toFloat()} ${loc.z.toFloat()}")
     }
 }

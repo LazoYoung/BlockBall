@@ -6,19 +6,25 @@ import com.github.shynixn.blockball.api.BlockBallApi
 import com.github.shynixn.blockball.api.business.enumeration.Version
 import com.github.shynixn.blockball.api.business.proxy.PluginProxy
 import com.github.shynixn.blockball.api.business.service.*
-import com.github.shynixn.blockball.bukkit.logic.business.extension.convertChatColors
+import com.github.shynixn.blockball.api.persistence.context.SqlDbContext
+import com.github.shynixn.blockball.core.logic.business.extension.translateChatColors
 import com.github.shynixn.blockball.bukkit.logic.business.extension.findClazz
 import com.github.shynixn.blockball.bukkit.logic.business.listener.*
 import com.github.shynixn.blockball.core.logic.business.commandexecutor.*
 import com.github.shynixn.blockball.core.logic.business.extension.cast
 import com.google.inject.Guice
 import com.google.inject.Injector
+import org.apache.commons.io.IOUtils
 import org.bstats.bukkit.Metrics
 import org.bukkit.Bukkit
 import org.bukkit.ChatColor
 import org.bukkit.Server
 import org.bukkit.configuration.MemorySection
 import org.bukkit.plugin.java.JavaPlugin
+import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.util.logging.Level
 
 /**
@@ -69,37 +75,62 @@ class BlockBallPlugin : JavaPlugin(), PluginProxy {
      * Enables the plugin BlockBall.
      */
     override fun onEnable() {
-        Bukkit.getServer().consoleSender.sendMessage(BlockBallPlugin.PREFIX_CONSOLE + ChatColor.GREEN + "Loading BlockBall ...")
+        Bukkit.getServer().consoleSender.sendMessage(PREFIX_CONSOLE + ChatColor.GREEN + "Loading BlockBall ...")
         this.saveDefaultConfig()
 
+        if (disableForVersion(Version.VERSION_1_8_R1, Version.VERSION_1_8_R3)) {
+            return
+        }
+
+        if (disableForVersion(Version.VERSION_1_8_R2, Version.VERSION_1_8_R3)) {
+            return
+        }
+
+        if (disableForVersion(Version.VERSION_1_9_R1, Version.VERSION_1_9_R2)) {
+            return
+        }
+
+        if (disableForVersion(Version.VERSION_1_13_R1, Version.VERSION_1_13_R2)) {
+            return
+        }
+
         if (!getServerVersion().isCompatible(
-                Version.VERSION_1_8_R1,
-                Version.VERSION_1_8_R2,
                 Version.VERSION_1_8_R3,
-                Version.VERSION_1_9_R1,
                 Version.VERSION_1_9_R2,
                 Version.VERSION_1_10_R1,
                 Version.VERSION_1_11_R1,
                 Version.VERSION_1_12_R1,
-                Version.VERSION_1_13_R1,
                 Version.VERSION_1_13_R2,
-                Version.VERSION_1_14_R1
+                Version.VERSION_1_14_R1,
+                Version.VERSION_1_15_R1
             )
         ) {
             sendConsoleMessage(ChatColor.RED.toString() + "================================================")
             sendConsoleMessage(ChatColor.RED.toString() + "BlockBall does not support your server version")
-            sendConsoleMessage(ChatColor.RED.toString() + "Install v" + Version.VERSION_1_8_R1.id + " - v" + Version.VERSION_1_14_R1.id)
+            sendConsoleMessage(ChatColor.RED.toString() + "Install v" + Version.VERSION_1_8_R1.id + " - v" + Version.VERSION_1_15_R1.id)
             sendConsoleMessage(ChatColor.RED.toString() + "Plugin gets now disabled!")
             sendConsoleMessage(ChatColor.RED.toString() + "================================================")
 
             Bukkit.getPluginManager().disablePlugin(this)
+            return
+        }
 
+        if (isArmorStandTickingDisabled()) {
+            sendConsoleMessage(ChatColor.RED.toString() + "================================================")
+            sendConsoleMessage(ChatColor.RED.toString() + "BlockBall does only work with armor-stands-tick: true")
+            sendConsoleMessage(ChatColor.RED.toString() + "Please enable it in your paper.yml file!")
+            sendConsoleMessage(ChatColor.GRAY.toString() + "You can disable this security check on your own risk by")
+            sendConsoleMessage(ChatColor.GRAY.toString() + "setting ignore-ticking-settings: true in the config.yml of BlockBall.")
+            sendConsoleMessage(ChatColor.RED.toString() + "Plugin gets now disabled!")
+            sendConsoleMessage(ChatColor.RED.toString() + "================================================")
+
+            Bukkit.getPluginManager().disablePlugin(this)
             return
         }
 
         this.injector = Guice.createInjector(BlockBallDependencyInjectionBinder(this))
-
         this.reloadConfig()
+
         // Register Listeners
         Bukkit.getPluginManager().registerEvents(resolve(GameListener::class.java), this)
         Bukkit.getPluginManager().registerEvents(resolve(DoubleJumpListener::class.java), this)
@@ -110,11 +141,31 @@ class BlockBallPlugin : JavaPlugin(), PluginProxy {
         Bukkit.getPluginManager().registerEvents(resolve(BallListener::class.java), this)
         Bukkit.getPluginManager().registerEvents(resolve(BlockSelectionListener::class.java), this)
 
+        server.messenger.registerOutgoingPluginChannel(this, "BungeeCord")
+
+        startPlugin()
+
+        val updateCheckService = resolve(UpdateCheckService::class.java)
+        val dependencyService = resolve(DependencyService::class.java)
+        val configurationService = resolve(ConfigurationService::class.java)
+        val ballEntityService = resolve(BallEntityService::class.java)
+        val bungeeCordConnectionService = resolve(BungeeCordConnectionService::class.java)
+
+        ballEntityService.registerEntitiesOnServer()
+        updateCheckService.checkForUpdates()
+        dependencyService.checkForInstalledDependencies()
+
+        val enableMetrics = configurationService.findValue<Boolean>("metrics")
+        val enableBungeeCord = configurationService.findValue<Boolean>("game.allow-server-linking")
+
         // Register CommandExecutor
         val commandService = resolve(CommandService::class.java)
         commandService.registerCommandExecutor("blockballstop", resolve(StopCommandExecutor::class.java))
         commandService.registerCommandExecutor("blockballreload", resolve(ReloadCommandExecutor::class.java))
-        commandService.registerCommandExecutor("blockballbungeecord", resolve(BungeeCordSignCommandExecutor::class.java))
+        commandService.registerCommandExecutor(
+            "blockballbungeecord",
+            resolve(BungeeCordSignCommandExecutor::class.java)
+        )
         commandService.registerCommandExecutor("blockball", resolve(ArenaCommandExecutor::class.java))
         commandService.registerCommandExecutor(
             (config.get("global-spectate") as MemorySection).getValues(false) as Map<String, String>,
@@ -129,48 +180,60 @@ class BlockBallPlugin : JavaPlugin(), PluginProxy {
             resolve(JoinCommandExecutor::class.java)
         )
 
-        server.messenger.registerOutgoingPluginChannel(this, "BungeeCord")
-
-        val updateCheker = resolve(UpdateCheckService::class.java)
-        val dependencyChecker = resolve(DependencyService::class.java)
-        val configurationService = resolve(ConfigurationService::class.java)
-        val ballEntitySerivice = resolve(BallEntityService::class.java)
-        val bungeeCordConnectionService = resolve(BungeeCordConnectionService::class.java)
-
-        ballEntitySerivice.registerEntitiesOnServer()
-        updateCheker.checkForUpdates()
-        dependencyChecker.checkForInstalledDependencies()
-
-        val enableMetrics = configurationService.findValue<Boolean>("metrics")
-        val enableBungeeCord = configurationService.findValue<Boolean>("game.allow-server-linking")
-
-        startPlugin()
-
         if (enableMetrics) {
             Metrics(this)
         }
 
         if (enableBungeeCord) {
             bungeeCordConnectionService.restartChannelListeners()
-            Bukkit.getServer().consoleSender.sendMessage(PREFIX_CONSOLE + ChatColor.DARK_GREEN + "Started server linking.")
+            Bukkit.getServer()
+                .consoleSender.sendMessage(PREFIX_CONSOLE + ChatColor.DARK_GREEN + "Started server linking.")
         }
 
         for (world in Bukkit.getWorlds()) {
-            ballEntitySerivice.cleanUpInvalidEntities(world.entities)
+            ballEntityService.cleanUpInvalidEntities(world.entities)
         }
 
-        Bukkit.getServer().consoleSender.sendMessage(PREFIX_CONSOLE + ChatColor.GREEN + "Enabled BlockBall " + this.description.version + " by Shynixn")
+        Bukkit.getServer()
+            .consoleSender.sendMessage(PREFIX_CONSOLE + ChatColor.GREEN + "Enabled BlockBall " + this.description.version + " by Shynixn, LazoYoung")
     }
 
     /**
      * Override on disable.
      */
     override fun onDisable() {
+        if (injector == null) {
+            return
+        }
+
+        resolve(PersistenceStatsService::class.java).close()
+        resolve(SqlDbContext::class.java).close()
+
         try {
             resolve(GameService::class.java).close()
             resolve(EntityRegistrationService::class.java).clearResources()
         } catch (e: Exception) {
             // Ignored.
+        }
+    }
+
+    /**
+     * Loads the default config and saves it to the plugin folder.
+     */
+    override fun saveDefaultConfig() {
+        this.getResource("assets/blockball/config.yml").use { inputStream ->
+            if (!this.dataFolder.exists()) {
+                this.dataFolder.mkdir()
+            }
+
+            val configFile = File(this.dataFolder, "config.yml")
+            if (configFile.exists()) {
+                return
+            }
+
+            FileOutputStream(configFile).use { outStream ->
+                IOUtils.copy(inputStream, outStream)
+            }
         }
     }
 
@@ -232,13 +295,13 @@ class BlockBallPlugin : JavaPlugin(), PluginProxy {
         builder.append(ChatColor.RESET.toString())
         builder.append("]")
 
-        val minecraftServerClazz = findClazz("net.minecraft.server.VERSION.MinecraftServer", this)
-        val craftServerClazz = findClazz("org.bukkit.craftbukkit.VERSION.CraftServer", this)
+        val minecraftServerClazz = findClazz("net.minecraft.server.VERSION.MinecraftServer")
+        val craftServerClazz = findClazz("org.bukkit.craftbukkit.VERSION.CraftServer")
         val setModtMethod = minecraftServerClazz.getDeclaredMethod("setMotd", String::class.java)
         val getServerConsoleMethod = craftServerClazz.getDeclaredMethod("getServer")
 
         val console = getServerConsoleMethod!!.invoke(Bukkit.getServer())
-        setModtMethod!!.invoke(console, builder.toString().convertChatColors())
+        setModtMethod!!.invoke(console, builder.toString().translateChatColors())
     }
 
     /**
@@ -276,5 +339,45 @@ class BlockBallPlugin : JavaPlugin(), PluginProxy {
         } catch (e: Exception) {
             throw IllegalArgumentException("Entity could not be created.", e)
         }
+    }
+
+    /**
+     * Disables the plugin for the given version and prints the supported version.
+     */
+    private fun disableForVersion(version: Version, supportedVersion: Version): Boolean {
+        if (getServerVersion() == version) {
+            sendConsoleMessage(ChatColor.RED.toString() + "================================================")
+            sendConsoleMessage(ChatColor.RED.toString() + "BlockBall does not support this subversion")
+            sendConsoleMessage(ChatColor.RED.toString() + "Please upgrade from v" + version.id + " to v" + supportedVersion.id)
+            sendConsoleMessage(ChatColor.RED.toString() + "Plugin gets now disabled!")
+            sendConsoleMessage(ChatColor.RED.toString() + "================================================")
+            Bukkit.getPluginManager().disablePlugin(this)
+            return true
+        }
+
+        return false
+    }
+
+    /**
+     * Checks if armorStand ticking is disabled when PaperSpigot is being used.
+     */
+    private fun isArmorStandTickingDisabled(): Boolean {
+        if (config.getBoolean("game.ignore-ticking-settings")) {
+            return false
+        }
+
+        val path = Paths.get("paper.yml")
+
+        if (!Files.exists(path)) {
+            return false
+        }
+
+        for (line in Files.readAllLines(path)) {
+            if (line.contains("armor-stands-tick: false")) {
+                return true
+            }
+        }
+
+        return false
     }
 }

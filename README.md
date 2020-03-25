@@ -10,10 +10,10 @@
 BlockBall is a spigot plugin to play soccer games in Minecraft.
 
 ## Features
-
+ 
 * Uses blocks as balls in minecraft
 * Games are completely customizable
-* Version support 1.8.R1 - 1.14.R1
+* Version support 1.8.R3 - 1.15.R1
 * Check out the [BlockBall-Spigot-Page](https://www.spigotmc.org/resources/15320/) to get more information. 
 
 ## Installation
@@ -41,7 +41,11 @@ BlockBall is a spigot plugin to play soccer games in Minecraft.
 [./gradlew|gradlew.bat] shadowJar
 ```
 
-* The .jar file gets generated at blockball-bukkit-plugin/build/libs/blockball-bukkit-plugin.jar
+* The .jar file gets generated at ``blockball-bukkit-plugin/build/libs/blockball-bukkit-plugin.jar``
+
+### Docker (Optional)
+
+* You can also use the provided `Dockerfile` to launch a container with a pre configured server and plugin.
 
 ## Licence
 
